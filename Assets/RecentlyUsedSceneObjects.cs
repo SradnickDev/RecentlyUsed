@@ -24,32 +24,19 @@ namespace RecentlyUsed
 			}
 		}
 
+		//unity json can only serialize objects,that's the only purposes of this
 		private class JsonData
 		{
 			public List<SceneObject> Data = new List<SceneObject>();
 		}
 
 		//------------------------------------------------------------------------------------------------
+		public override string InfoLabel => $"Sum: {iSumCount} Favorite: {iFavoriteCount}";
 		private static string DataPath => Application.persistentDataPath + "/Recently_SceneObjects.txt";
 		private Dictionary<int, SceneObject> pSceneObjects = new Dictionary<int, SceneObject>();
 		private static PropertyInfo pPropertyInfo;
-
-		//------------------------------------------------------------------------------------------------
-		[MenuItem("RecentlyUsed/Reset Scene Objects")]
-		private static void ResetData()
-		{
-			if (File.Exists(DataPath))
-			{
-				File.Delete(DataPath);
-			}
-
-			if (HasOpenInstances<RecentlyUsedSceneObjects>())
-			{
-				var pWindow = (RecentlyUsedSceneObjects) GetWindow(typeof(RecentlyUsedSceneObjects));
-				pWindow.pSceneObjects = new Dictionary<int, SceneObject>();
-				pWindow.Repaint();
-			}
-		}
+		private int iFavoriteCount;
+		private int iSumCount;
 
 		//------------------------------------------------------------------------------------------------
 		[MenuItem("RecentlyUsed/Scene Objects", false, -10)]
@@ -61,11 +48,37 @@ namespace RecentlyUsed
 		}
 
 		//------------------------------------------------------------------------------------------------
+
+		public override void OnRemoveNoneStarred()
+		{
+			var copy = new Dictionary<int, SceneObject>(pSceneObjects);
+			foreach (var pair in copy)
+			{
+				if (!pair.Value.IsFavorite)
+				{
+					pSceneObjects.Remove(pair.Key);
+				}
+			}
+
+			this.Save();
+		}
+
+		//------------------------------------------------------------------------------------------------
+
+		public override void OnRemoveAll()
+		{
+			pSceneObjects = new Dictionary<int, SceneObject>();
+			this.Save();
+		}
+
+		//------------------------------------------------------------------------------------------------
 		public override void OnDraw()
 		{
 			GUILayout.Space(2);
 			GUILayout.BeginVertical(GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
 
+			iFavoriteCount = 0;
+			iSumCount = 0;
 			var pSortedList = this.Sort(pSceneObjects.Values.ToList());
 			var pToRemove = new List<SceneObject>();
 			foreach (var sceneObject in pSortedList)
@@ -76,6 +89,13 @@ namespace RecentlyUsed
 						PrefabUtility.GetIconForGameObject(sceneObject.Target as GameObject),
 						ref sceneObject.IsFavorite,
 						out var bRemoved);
+
+				if (sceneObject.IsFavorite)
+				{
+					iFavoriteCount++;
+				}
+
+				iSumCount++;
 				if (bRemoved)
 				{
 					pToRemove.Add(sceneObject);

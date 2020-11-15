@@ -40,33 +40,50 @@ namespace RecentlyUsed
 		}
 
 		//------------------------------------------------------------------------------------------------
+		public override string InfoLabel => $"Sum: {pProjectFiles.Count} Favorite: {iFavoriteCount}";
 		private static string DataPath => Application.persistentDataPath + "/Recently_ProjectFiles.txt";
 		private Dictionary<string, ProjectFile> pProjectFiles = new Dictionary<string, ProjectFile>();
+		private int iFavoriteCount;
 
 		//------------------------------------------------------------------------------------------------
-		[MenuItem("RecentlyUsed/Reset Project Files")]
-		private static void ResetData()
+		[MenuItem("RecentlyUsed/Remove None Favorite Data")]
+		private static void RemoveNoneFavoriteData()
 		{
-			if (File.Exists(DataPath))
-			{
-				File.Delete(DataPath);
-			}
-			
-			if (HasOpenInstances<RecentlyUsedProjectFiles>())
-			{
-				var pWindow = (RecentlyUsedProjectFiles) GetWindow(typeof(RecentlyUsedProjectFiles));
-				pWindow.pProjectFiles = new Dictionary<string, ProjectFile>();
-				pWindow.Repaint();
-			}
+			var pWindow = (RecentlyUsedProjectFiles) GetWindow(typeof(RecentlyUsedProjectFiles));
+			pWindow.pProjectFiles = new Dictionary<string, ProjectFile>();
 		}
 
 		//------------------------------------------------------------------------------------------------
-		[MenuItem("RecentlyUsed/Project Files",false,-10)]
+		[MenuItem("RecentlyUsed/Project Files", false, -10)]
 		private static void Init()
 		{
 			var pWindow = (RecentlyUsedProjectFiles) GetWindow(typeof(RecentlyUsedProjectFiles));
 			pWindow.titleContent = new GUIContent("Project Files", EditorGUIUtility.FindTexture("CustomSorting"));
 			pWindow.Show();
+		}
+
+		//------------------------------------------------------------------------------------------------
+		public override void OnRemoveNoneStarred()
+		{
+			var copy = new Dictionary<string, ProjectFile>(pProjectFiles);
+			foreach (var pair in copy)
+			{
+				if (!pair.Value.IsFavorite)
+				{
+					pProjectFiles.Remove(pair.Key);
+				}
+			}
+
+			this.Save();
+		}
+
+		//------------------------------------------------------------------------------------------------
+
+		public override void OnRemoveAll()
+		{
+			pProjectFiles = new Dictionary<string, ProjectFile>();
+			this.Repaint();
+			this.Save();
 		}
 
 		//------------------------------------------------------------------------------------------------
@@ -77,7 +94,8 @@ namespace RecentlyUsed
 
 			var pSortedList = this.Sort(pProjectFiles.Values.ToList());
 			var pToRemove = new List<ProjectFile>();
-
+			
+			iFavoriteCount = 0;
 			foreach (var projectFile in pSortedList)
 			{
 				if (projectFile.Target == null) continue;
@@ -87,6 +105,10 @@ namespace RecentlyUsed
 						ref projectFile.IsFavorite,
 						out var bRemoved);
 
+				if (projectFile.IsFavorite)
+				{
+					iFavoriteCount++;
+				}
 				if (bRemoved)
 				{
 					pToRemove.Add(projectFile);
@@ -155,7 +177,7 @@ namespace RecentlyUsed
 		//------------------------------------------------------------------------------------------------
 		public override void Save()
 		{
-			if (this.pProjectFiles != null && this.pProjectFiles.Count > 0)
+			if (this.pProjectFiles != null)
 			{
 				var data = new JsonData() {Data = this.pProjectFiles.Values.ToList()};
 				var json = JsonUtility.ToJson(data);
